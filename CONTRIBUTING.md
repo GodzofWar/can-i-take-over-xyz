@@ -5,7 +5,7 @@ npm install --save-dev --save-exact prettier
 npx prettier --write .
 ```
 
-### Fingerprint Conributors Over Time
+### Fingerprint Contributors Over Time
 
 [Muhammad Khizer Javed](https://github.com/MuhammadKhizerJaved)\
 [Evgeniy Yakovchuk](https://github.com/sp1d3r)\
