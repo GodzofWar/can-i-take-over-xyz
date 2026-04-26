@@ -44,6 +44,7 @@ def errprint(s):
 
 
 threads = 20
+request_timeout = 10
 
 readme_file = (Path(__file__).parent.parent / "README.md").resolve()
 json_file = (Path(__file__).parent.parent / "fingerprints.json").resolve()
@@ -160,6 +161,7 @@ class Fingerprint:
     def _verify_response(self, *args, **kwargs):
         if self.http_status:
             kwargs["allow_redirects"] = False
+        kwargs.setdefault("timeout", request_timeout)
         try:
             r = requests.get(*args, **kwargs)
             if self.http_status is not None and r.status_code == self.http_status:
@@ -222,11 +224,11 @@ def make_markdown_table(*args, **kwargs):
 def parse_fingerprints():
     table = readme_sections[1].strip().splitlines()
 
-    futures = []
+    futures = {}
     with concurrent.futures.ThreadPoolExecutor(max_workers=threads) as executor:
         for row in table:
             future = executor.submit(Fingerprint, row)
-            futures.append(future)
+            futures[future] = row
 
     fingerprints = []
     for future in concurrent.futures.as_completed(futures):
@@ -235,7 +237,7 @@ def parse_fingerprints():
         except AssertionError as e:
             engine = str(e)
             if not engine == "Engine" and not all(c == "-" for c in engine):
-                errprint(f"Invalid signature: {row}")
+                errprint(f"Invalid signature: {futures[future]}")
 
     return fingerprints
 
