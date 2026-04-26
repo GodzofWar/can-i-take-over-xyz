@@ -1,0 +1,76 @@
+name: validate_pr
+
+on:
+  pull_request:
+    paths:
+      - README.md
+      - scripts/**
+      - .github/workflows/validate_pr.yml
+
+concurrency:
+  group: validate_pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: "pip"
+          cache-dependency-path: scripts/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Regenerate fingerprints from PR README
+        run: |
+          python3 scripts/gen_fingerprints.py json > new_fingerprints.json
+          python3 -c "import json; json.load(open('new_fingerprints.json'))"
+
+      - name: Diff against committed fingerprints.json
+        id: diff
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          def load(p):
+              return {f["service"]: f for f in json.loads(pathlib.Path(p).read_text())}
+          old = load("fingerprints.json")
+          new = load("new_fingerprints.json")
+          added = sorted(set(new) - set(old))
+          removed = sorted(set(old) - set(new))
+          changed = []
+          for s in sorted(set(old) & set(new)):
+              fields = ["status", "fingerprint", "cname", "nxdomain", "http_status"]
+              before = {k: old[s].get(k) for k in fields}
+              after = {k: new[s].get(k) for k in fields}
+              if before != after:
+                  changed.append((s, before, after))
+          print("## Fingerprints diff\n")
+          if not (added or removed or changed):
+              print("_No semantic changes (cicd_pass drift ignored)._")
+          if added:
+              print(f"### Added ({len(added)})")
+              for s in added:
+                  print(f"- `{s}`")
+              print()
+          if removed:
+              print(f"### Removed ({len(removed)})")
+              for s in removed:
+                  print(f"- `{s}`")
+              print()
+          if changed:
+              print(f"### Changed ({len(changed)})")
+              for s, b, a in changed:
+                  print(f"- `{s}`")
+                  print(f"  - before: `{b}`")
+                  print(f"  - after:  `{a}`")
+              print()
+          PY

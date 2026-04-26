@@ -1,0 +1,93 @@
+name: New entry
+description: Submit a new service to the takeover list.
+title: "[New service] <service name>"
+labels: ["new-entry"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for contributing! These fields map directly to columns in the
+        README table. The more you can fill in, the faster the entry can be
+        verified by CI/CD.
+
+  - type: input
+    id: service
+    attributes:
+      label: Service name
+      description: Engine column. Example - "AWS/S3", "Heroku", "Ghost".
+      placeholder: e.g. Ghost
+    validations:
+      required: true
+
+  - type: dropdown
+    id: status
+    attributes:
+      label: Status
+      description: |
+        - **Vulnerable** - takeover is reproducible
+        - **Edge case** - sometimes vulnerable, conditions apply
+        - **Not vulnerable** - documented and confirmed safe
+      options:
+        - Vulnerable
+        - Edge case
+        - Not vulnerable
+    validations:
+      required: true
+
+  - type: input
+    id: domains
+    attributes:
+      label: Domains / CNAMEs
+      description: |
+        Comma-separated. These are used by the CI verifier to fetch a random
+        subdomain and check for the fingerprint. Leave blank if there is no
+        single canonical domain.
+      placeholder: e.g. ghost.io, ghost.org
+    validations:
+      required: false
+
+  - type: input
+    id: fingerprint
+    attributes:
+      label: Fingerprint
+      description: |
+        One of:
+        - A regex that matches the vulnerable response body (e.g. `Repository not found`)
+        - The literal string `NXDOMAIN` for unresolvable-CNAME takeovers
+        - `HTTP_STATUS=NNN` to match an HTTP status code (e.g. `HTTP_STATUS=404`)
+      placeholder: e.g. Repository not found
+    validations:
+      required: true
+
+  - type: textarea
+    id: proof
+    attributes:
+      label: Proof
+      description: |
+        How you confirmed the takeover. Include redacted screenshots, request/response
+        snippets, or a link to a writeup. Do **not** include live victim domains.
+      placeholder: |
+        $ curl -sI https://random123.example.com
+        HTTP/1.1 404 Not Found
+        ...
+    validations:
+      required: true
+
+  - type: input
+    id: documentation
+    attributes:
+      label: Documentation
+      description: Optional - link to the service's docs about custom domains.
+      placeholder: https://docs.example.com/custom-domain
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: precheck
+    attributes:
+      label: Pre-submission checklist
+      options:
+        - label: I searched existing issues and the README; this service is not already listed.
+          required: true
+        - label: My proof does not include any live, victim-owned domain.
+          required: true
