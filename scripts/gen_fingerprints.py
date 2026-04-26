@@ -27,6 +27,7 @@ import re
 import sys
 import json
 import random
+import socket
 import string
 import tabulate
 import requests
@@ -45,6 +46,7 @@ def errprint(s):
 
 threads = 20
 request_timeout = 10
+socket.setdefaulttimeout(request_timeout)
 
 readme_file = (Path(__file__).parent.parent / "README.md").resolve()
 json_file = (Path(__file__).parent.parent / "fingerprints.json").resolve()
@@ -59,6 +61,12 @@ if not readme_contents:
     errprint(f"Empty README")
     sys.exit(1)
 readme_sections = readme_contents.split(delimiter)
+if len(readme_sections) != 3:
+    errprint(
+        f"Expected exactly two {delimiter!r} markers in README "
+        f"(found {max(0, len(readme_sections) - 1)})."
+    )
+    sys.exit(1)
 rand_pool = string.ascii_lowercase
 tabulate_defaults = {"tablefmt": "github", "disable_numparse": True}
 
@@ -102,7 +110,12 @@ class Fingerprint:
             errprint(f"{e}: {cols}")
         try:
             self.fingerprint_regex = re.compile(self.fingerprint, re.MULTILINE)
-        except re.error:
+        except re.error as e:
+            errprint(
+                f"WARNING: {self.engine!r} fingerprint failed to compile as "
+                f"regex ({e}); falling back to literal-string match. "
+                f"Fix the regex or escape special characters in the README."
+            )
             self.fingerprint_regex = re.compile(
                 re.escape(self.fingerprint), re.MULTILINE
             )
@@ -131,6 +144,8 @@ class Fingerprint:
             return False, "Missing domain"
         if not self.fingerprint:
             return False, "Missing fingerprint"
+        if self.nxdomain:
+            return self._verify_nxdomain()
         errors = []
         for d in self.domains:
             d = d.strip("*.")
@@ -158,6 +173,19 @@ class Fingerprint:
 
         return False, f"No matches for {self.engine} (Errors: {errors})"
 
+    def _verify_nxdomain(self):
+        errors = []
+        for d in self.domains:
+            host = f"{rand_string()}.{d.strip('*.')}"
+            try:
+                socket.getaddrinfo(host, None)
+                errors.append(f"{host} resolved (expected NXDOMAIN)")
+            except socket.gaierror as e:
+                return True, f"Fingerprint verified, {host} -> NXDOMAIN"
+            except OSError as e:
+                errors.append(f"{host}: {e}")
+        return False, f"No NXDOMAIN for {self.engine} (Errors: {errors})"
+
     def _verify_response(self, *args, **kwargs):
         if self.http_status:
             kwargs["allow_redirects"] = False
@@ -166,15 +194,9 @@ class Fingerprint:
             r = requests.get(*args, **kwargs)
             if self.http_status is not None and r.status_code == self.http_status:
                 return True, f"Fingerprint verified, HTTP status matched"
-            if (
-                not self.nxdomain
-                and not self.http_status
-                and self.fingerprint_regex.findall(r.text)
-            ):
+            if not self.http_status and self.fingerprint_regex.findall(r.text):
                 return True, f"Fingerprint verified"
         except requests.exceptions.RequestException as e:
-            if self.nxdomain and "Name or service not known" in str(e):
-                return True, f"Fingerprint verified, {args} --> NXDOMAIN"
             return False, str(e)
         return False, "No match"
 
