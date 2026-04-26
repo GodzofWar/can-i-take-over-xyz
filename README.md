@@ -35,9 +35,13 @@ I recommend searching for the name of the service you are targeting in the issue
 
 ## How to contribute
 
-You can submit new services here: https://github.com/EdOverflow/can-i-take-over-xyz/issues/new?template=new-entry.md.
+You can submit new services here: https://github.com/EdOverflow/can-i-take-over-xyz/issues/new?template=new-entry.yml.
+
+The form prompts for the exact fields the CI/CD verifier consumes (service name, status, domains, fingerprint, proof, documentation). Pull requests that touch `README.md` or `scripts/**` are validated automatically by the `validate_pr` workflow, which re-runs the parser and posts a structured diff of added / removed / changed entries to the PR job summary.
 
 A list of services that can be checked (although check for duplicates against this list first) can be found here: https://github.com/EdOverflow/can-i-take-over-xyz/issues/26.
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) for local development steps.
 
 # All entries
 
@@ -46,12 +50,17 @@ Note: `fingerprints.json` is automatically updated based on the content of this 
 Column header definitions:
 
 - `Engine`: Name of service
-- `Status`: Whether the service is vulnerable
+- `Status`: Whether the service is vulnerable (`Vulnerable`, `Not vulnerable`, or `Edge case`)
 - `Verified by CI/CD`: Whether automated fingerprint check is currently passing
-- `Domains`: Comma-separate domains (used for fingerprint auto-verification)
-- `Fingerprint`: Regex indicating vulnerable page (or `NXDOMAIN`, indicating non-existent DNS record)
+- `Domains`: Comma-separated domains (used for fingerprint auto-verification)
+- `Fingerprint`: One of:
+  - A regex matched against the response body (e.g. `Repository not found`)
+  - `NXDOMAIN` — verified by a DNS lookup of a random subdomain
+  - `HTTP_STATUS=NNN` — verified by an HTTP status code (e.g. `HTTP_STATUS=404`)
 - `Discussion`: Link to issue on this repo for discussion
 - `Documentation`: Link to official documentation
+
+The verifier ([`scripts/gen_fingerprints.py`](scripts/gen_fingerprints.py)) runs weekly via GitHub Actions and on-demand via `workflow_dispatch`. It rewrites the table below and `fingerprints.json` in place.
 
 <!--FINGERPRINTS-->
 
