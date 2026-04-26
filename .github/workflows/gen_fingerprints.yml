@@ -2,6 +2,7 @@ name: gen_fingerprints
 
 on:
   push:
+  workflow_dispatch:
   schedule:
     # At 12:27AM every Saturday
     - cron: "27 00 * * 6"
